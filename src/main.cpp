@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Failed to open tools.json" << std::endl;
         return 1;
     }
-    json tools = json::parse(tools_file);
+    json Ex_tools = json::parse(tools_file);
 
 
     json request_body = {
@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
         {"messages", json::array({
             {{"role", "user"}, {"content", prompt}}
         })},
-        {"tools": Ex_tools}
+        {"tools", Ex_tools}
     };
 
     cpr::Response response = cpr::Post(
