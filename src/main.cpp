@@ -35,12 +35,12 @@ int main(int argc, char* argv[]) {
     }
 
     /// 读工具tools.json文件
-    std::ifstream tools_file("tools.json");
-    if (!tools_file) {
-        std::cerr << "Failed to open tools.json" << std::endl;
-        return 1;
-    }
-    json Ex_tools = json::parse(tools_file);
+    // std::ifstream tools_file("./tools.json");
+    // if (!tools_file) {
+    //     std::cerr << "Failed to open tools.json" << std::endl;
+    //     return 1;
+    // }
+    // json Ex_tools = json::parse(tools_file);
 
 
     json request_body = {
@@ -48,7 +48,25 @@ int main(int argc, char* argv[]) {
         {"messages", json::array({
             {{"role", "user"}, {"content", prompt}}
         })},
-        {"tools", Ex_tools}
+        {"tools", json::array({
+            {
+                {"type", "function"},
+                {"function", {
+                    {"name", "Read"},
+                    {"description", "Read and return the contents of a file"},
+                    {"parameters", {
+                        {"type", "object"},
+                        {"properties", {
+                            {"file_path", {
+                                {"type", "string"},
+                                {"description", "The path to the file to read"}
+                            }}
+                        }},
+                        {"required", json::array({"file_path"})}
+                    }}
+                }}
+            }
+})}
     };
 
     cpr::Response response = cpr::Post(
