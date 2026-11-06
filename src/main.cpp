@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <fstream>
 
 #include <cpr/cpr.h>
 #include <nlohmann/json.hpp>
@@ -91,10 +92,27 @@ int main(int argc, char* argv[]) {
     }
 
     // You can use print statements as follows for debugging, they'll be visible when running tests.
-    std::cerr << "Logs from your program will appear here!" << std::endl;
+    // std::cerr << "Logs from your program will appear here!" << std::endl;
 
     // TODO: Uncomment the line below to pass the first stage
-    std::cout << result["choices"][0]["message"]["content"].get<std::string>();
+    const json& messTool = result["choices"][0]["message"]["tool_calls"][0];
+    std::string toolName = messTool["function"]["name"].get<std::string>();
+    if(toolName == "read")
+    {
+        std::string argPath = messTool["function"]["arguments"].get<std::string>();
+        if(argPath.empty()) perror("读取文件路径为空！");
+        json argPath2json = json::parse(argPath)
+        sts::string RealPath = argPath2json["file_path"].get<std::string>();
+        std::ifstream fileread(realpath, std::ios::binary)
+        if (!fileread) 
+        {
+        std::cerr << "Failed to open file: " << file_path << std::endl;
+        return 1;
+        }
+        std::cout << fileread.rdbuf();
+    }
+
+
 
     return 0;
 }
