@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
         json argPath2json = json::parse(argPath);
         std::string RealPath = argPath2json["file_path"].get<std::string>();
         std::ifstream fileread(RealPath, std::ios::binary)
-        if (!fileread) 
+        if(!fileread) 
         {
             std::cerr << "Failed to open file: " << RealPath << std::endl;
             return 1;
