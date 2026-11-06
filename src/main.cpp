@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
             {
                 {"type", "function"},
                 {"function", {
-                    {"name", "read"},
+                    {"name", "Read"},
                     {"description", "Read and return the contents of a file"},
                     {"parameters", {
                         {"type", "object"},
@@ -95,12 +95,13 @@ int main(int argc, char* argv[]) {
     // std::cerr << "Logs from your program will appear here!" << std::endl;
 
     // TODO: Uncomment the line below to pass the first stage
+    const json& message = result["choices"][0]["message"];
     if (message.contains("tool_calls") && message["tool_calls"].is_array() &&
         !message["tool_calls"].empty())
         {
             const json& messTool = result["choices"][0]["message"]["tool_calls"][0];
             std::string toolName = messTool["function"]["name"].get<std::string>();
-            if(toolName == "read")
+            if(toolName == "Read")
             {
                 std::string argPath = messTool["function"]["arguments"].get<std::string>();
                 if(argPath.empty()) perror("读取文件路径为空！");
@@ -115,7 +116,9 @@ int main(int argc, char* argv[]) {
                 std::cout << fileread.rdbuf();
             }
         }
-
+        else if (message.contains("content") && message["content"].is_string()) {
+            std::cout << message["content"].get<std::string>();
+        }
 
 
     return 0;
