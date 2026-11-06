@@ -7,6 +7,9 @@
 
 using json = nlohmann::json;
 
+
+
+
 int main(int argc, char* argv[]) {
     if (argc < 3 || std::string(argv[1]) != "-p") {
         std::cerr << "Expected first argument to be '-p'" << std::endl;
@@ -31,11 +34,21 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    /// 读工具tools.json文件
+    std::ifstream tools_file("tools.json");
+    if (!tools_file) {
+        std::cerr << "Failed to open tools.json" << std::endl;
+        return 1;
+    }
+    json tools = json::parse(tools_file);
+
+
     json request_body = {
         {"model", "anthropic/claude-haiku-4.5"},
         {"messages", json::array({
             {{"role", "user"}, {"content", prompt}}
-        })}
+        })},
+        {"tools": Ex_tools}
     };
 
     cpr::Response response = cpr::Post(

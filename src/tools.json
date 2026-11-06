@@ -1,0 +1,17 @@
+{
+  "type": "read",
+  "function": {
+    "name": "Read",
+    "description": "读取并返回文件",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "description": "文档路径"
+        }
+      },
+      "required": ["file_path"]
+    }
+  }
+}
