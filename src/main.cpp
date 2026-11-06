@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
         if(argPath.empty()) perror("读取文件路径为空！");
         json argPath2json = json::parse(argPath);
         std::string RealPath = argPath2json["file_path"].get<std::string>();
-        std::ifstream fileread(RealPath, std::ios::binary)
+        std::ifstream fileread(RealPath, std::ios::binary);
         if(!fileread) 
         {
             std::cerr << "Failed to open file: " << RealPath << std::endl;
