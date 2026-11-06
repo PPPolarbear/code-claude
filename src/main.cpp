@@ -95,22 +95,26 @@ int main(int argc, char* argv[]) {
     // std::cerr << "Logs from your program will appear here!" << std::endl;
 
     // TODO: Uncomment the line below to pass the first stage
-    const json& messTool = result["choices"][0]["message"]["tool_calls"][0];
-    std::string toolName = messTool["function"]["name"].get<std::string>();
-    if(toolName == "read")
-    {
-        std::string argPath = messTool["function"]["arguments"].get<std::string>();
-        if(argPath.empty()) perror("读取文件路径为空！");
-        json argPath2json = json::parse(argPath);
-        std::string RealPath = argPath2json["file_path"].get<std::string>();
-        std::ifstream fileread(RealPath, std::ios::binary);
-        if(!fileread) 
+    if (message.contains("tool_calls") && message["tool_calls"].is_array() &&
+        !message["tool_calls"].empty())
         {
-            std::cerr << "Failed to open file: " << RealPath << std::endl;
-            return 1;
+            const json& messTool = result["choices"][0]["message"]["tool_calls"][0];
+            std::string toolName = messTool["function"]["name"].get<std::string>();
+            if(toolName == "read")
+            {
+                std::string argPath = messTool["function"]["arguments"].get<std::string>();
+                if(argPath.empty()) perror("读取文件路径为空！");
+                json argPath2json = json::parse(argPath);
+                std::string RealPath = argPath2json["file_path"].get<std::string>();
+                std::ifstream fileread(RealPath, std::ios::binary);
+                if(!fileread) 
+                {
+                    std::cerr << "Failed to open file: " << RealPath << std::endl;
+                    return 1;
+                }
+                std::cout << fileread.rdbuf();
+            }
         }
-        std::cout << fileread.rdbuf();
-    }
 
 
 
