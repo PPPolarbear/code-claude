@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
             {
                 {"type", "function"},
                 {"function", {
-                    {"name", "Read"},
+                    {"name", "read"},
                     {"description", "Read and return the contents of a file"},
                     {"parameters", {
                         {"type", "object"},
@@ -101,13 +101,13 @@ int main(int argc, char* argv[]) {
     {
         std::string argPath = messTool["function"]["arguments"].get<std::string>();
         if(argPath.empty()) perror("读取文件路径为空！");
-        json argPath2json = json::parse(argPath)
-        sts::string RealPath = argPath2json["file_path"].get<std::string>();
-        std::ifstream fileread(realpath, std::ios::binary)
+        json argPath2json = json::parse(argPath);
+        std::string RealPath = argPath2json["file_path"].get<std::string>();
+        std::ifstream fileread(RealPath, std::ios::binary)
         if (!fileread) 
         {
-        std::cerr << "Failed to open file: " << file_path << std::endl;
-        return 1;
+            std::cerr << "Failed to open file: " << RealPath << std::endl;
+            return 1;
         }
         std::cout << fileread.rdbuf();
     }
