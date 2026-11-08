@@ -35,13 +35,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    /// 读工具tools.json文件
-    // std::ifstream tools_file("./tools.json");
-    // if (!tools_file) {
-    //     std::cerr << "Failed to open tools.json" << std::endl;
-    //     return 1;
-    // }
-    // json Ex_tools = json::parse(tools_file);
 
 
     json request_body = {
@@ -79,6 +72,32 @@ int main(int argc, char* argv[]) {
         cpr::Body{request_body.dump()}
     );
 
+    /*
+    response结构：
+    {
+    "choices": [
+        {
+        "index": 0,
+        "message": {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+            {
+                "id": "call_abc123",
+                "type": "function",
+                "function": {
+                "name": "Read",
+                "arguments": "{\"file_path\": \"/path/to/file.txt\"}"
+                }
+            }
+            ]
+        },
+        "finish_reason": "tool_calls"
+        }
+    ]
+    }
+    */
+
     if (response.status_code != 200) {
         std::cerr << "HTTP error: " << response.status_code << std::endl;
         return 1;
@@ -91,11 +110,62 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    // std::cerr << "Logs from your program will appear here!" << std::endl;
+    json& message = result["choices"][0]["message"];
 
-    // TODO: Uncomment the line below to pass the first stage
-    const json& message = result["choices"][0]["message"];
+    /*
+        改request_body中的message字段，每次返回看工具调用是不是空
+    不空则继续调用并把信息追加到mesage中
+    空则认为成功结束
+    */
+
+    
+    request_body.append(message);      // 把返回信息里面最后一轮的AI内容返回，request_body后续需要改写为一个类
+
+    while(message.contains("tool_calls") && 
+        message["tool_calls"].is_array() &&
+        !message["tool_calls"].empty())
+        {
+            /// 发现存在工具调用
+            std::string tool_res = tool_invoke(message);        // 执行工具调用，把返回字符串形式，记得注释里面写好格式
+            request_body.append(tool_res);                      // 把工具调用结果加入
+            repost(request_body)                                // 重新发送请求并更新message，result，response
+
+
+            /*
+            ----------------------------------
+            AI返回型
+            {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                    {
+                    "id": "call_abc123",
+                    "type": "function",
+                    "function": {
+                        "name": "Read",
+                        "arguments": "{\"file_path\": \"README.md\"}"
+                    }
+                    }
+                ]
+            }
+            ----------------------------------
+            工具返回型
+            {
+                "role": "tool",
+                "tool_call_id": "call_abc123",
+                "content": "# My Project\n\nChemical expiry period: 6 months"
+            }
+            ----------------------------------
+            */
+
+        }
+    
+    /// 处理完工具调用后输出内容
+        if (message.contains("content") && message["content"].is_string()) {
+            std::cout << message["content"].get<std::string>();
+        }
+
+    /// 下面后续内容等待下次处理时合并整理到tool_invoke函数
     if (message.contains("tool_calls") && message["tool_calls"].is_array() &&
         !message["tool_calls"].empty())
         {
@@ -116,9 +186,7 @@ int main(int argc, char* argv[]) {
                 std::cout << fileread.rdbuf();
             }
         }
-        else if (message.contains("content") && message["content"].is_string()) {
-            std::cout << message["content"].get<std::string>();
-        }
+
 
 
     return 0;
