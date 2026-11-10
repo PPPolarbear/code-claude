@@ -2,13 +2,30 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-
+#include "InfoOp.h"
+#include "LocalTool.h"
 #include <cpr/cpr.h>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 
+cpr::Response Repost(json& request_body, std::string api_key, std::string base_url)
+{
+    cpr::Response response = cpr::Post(
+        cpr::Url{base_url + "/chat/completions"},
+        cpr::Header{
+            {"Authorization", "Bearer " + api_key},
+            {"Content-Type", "application/json"}
+        },
+        cpr::Body{request_body.dump()}
+    );
 
+    if (response.status_code != 200) {
+        std::cerr << "HTTP error: " << response.status_code << std::endl;
+        exit(EXIT_FAILURE);// 异常退出
+    }
+    return response;
+}
 
 
 int main(int argc, char* argv[]) {
@@ -72,32 +89,6 @@ int main(int argc, char* argv[]) {
         cpr::Body{request_body.dump()}
     );
 
-    /*
-    response结构：
-    {
-    "choices": [
-        {
-        "index": 0,
-        "message": {
-            "role": "assistant",
-            "content": null,
-            "tool_calls": [
-            {
-                "id": "call_abc123",
-                "type": "function",
-                "function": {
-                "name": "Read",
-                "arguments": "{\"file_path\": \"/path/to/file.txt\"}"
-                }
-            }
-            ]
-        },
-        "finish_reason": "tool_calls"
-        }
-    ]
-    }
-    */
-
     if (response.status_code != 200) {
         std::cerr << "HTTP error: " << response.status_code << std::endl;
         return 1;
@@ -110,7 +101,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    json& message = result["choices"][0]["message"];
+    json message = result["choices"][0]["message"];
 
     /*
         改request_body中的message字段，每次返回看工具调用是不是空
@@ -118,75 +109,24 @@ int main(int argc, char* argv[]) {
     空则认为成功结束
     */
 
-    
-    request_body.append(message);      // 把返回信息里面最后一轮的AI内容返回，request_body后续需要改写为一个类
-
-    while(message.contains("tool_calls") && 
-        message["tool_calls"].is_array() &&
-        !message["tool_calls"].empty())
+    while(CheckRearInfo(message)) // 工具调用不通过
+    {
+        json toolres = tool_invoke(message); // 本地调用工具，返回成json类型
+        AppendRearInfo(message, request_body); // 先加AI返回的对话历史
+        AppendRearInfo(toolres, request_body); // 再加入本地调用工具的的结果
+        result = json::parse(Repost(request_body, api_key, base_url).text);
+        if (!result.contains("choices") || result["choices"].empty()) 
         {
-            /// 发现存在工具调用
-            std::string tool_res = tool_invoke(message);        // 执行工具调用，把返回字符串形式，记得注释里面写好格式
-            request_body.append(tool_res);                      // 把工具调用结果加入
-            repost(request_body)                                // 重新发送请求并更新message，result，response
-
-
-            /*
-            ----------------------------------
-            AI返回型
-            {
-                "role": "assistant",
-                "content": null,
-                "tool_calls": [
-                    {
-                    "id": "call_abc123",
-                    "type": "function",
-                    "function": {
-                        "name": "Read",
-                        "arguments": "{\"file_path\": \"README.md\"}"
-                    }
-                    }
-                ]
-            }
-            ----------------------------------
-            工具返回型
-            {
-                "role": "tool",
-                "tool_call_id": "call_abc123",
-                "content": "# My Project\n\nChemical expiry period: 6 months"
-            }
-            ----------------------------------
-            */
-
+        std::cerr << "No choices in response" << std::endl;
+        return 1;
         }
+        message = result["choices"][0]["message"];
+    }
     
     /// 处理完工具调用后输出内容
-        if (message.contains("content") && message["content"].is_string()) {
-            std::cout << message["content"].get<std::string>();
-        }
-
-    /// 下面后续内容等待下次处理时合并整理到tool_invoke函数
-    if (message.contains("tool_calls") && message["tool_calls"].is_array() &&
-        !message["tool_calls"].empty())
-        {
-            const json& messTool = result["choices"][0]["message"]["tool_calls"][0];
-            std::string toolName = messTool["function"]["name"].get<std::string>();
-            if(toolName == "Read")
-            {
-                std::string argPath = messTool["function"]["arguments"].get<std::string>();
-                if(argPath.empty()) perror("读取文件路径为空！");
-                json argPath2json = json::parse(argPath);
-                std::string RealPath = argPath2json["file_path"].get<std::string>();
-                std::ifstream fileread(RealPath, std::ios::binary);
-                if(!fileread) 
-                {
-                    std::cerr << "Failed to open file: " << RealPath << std::endl;
-                    return 1;
-                }
-                std::cout << fileread.rdbuf();
-            }
-        }
-
+    if (message.contains("content") && message["content"].is_string()) {
+        std::cout << message["content"].get<std::string>();
+    }
 
 
     return 0;
