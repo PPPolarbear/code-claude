@@ -42,6 +42,7 @@ nlohmann::json tool_invoke(const nlohmann::json& message)
         && messTool.contains("name") 
         && messTool["function"].empty()) perror("AI返回的工具调用格式解析错误");
     std::string toolName = messTool["function"]["name"].get<std::string>();
+
     if(toolName == "Read")
     {
         std::string argPath = messTool["function"]["arguments"].get<std::string>();
@@ -97,6 +98,13 @@ nlohmann::json tool_invoke(const nlohmann::json& message)
                 {"tool_call_id", toolid},
                 {"content", "成功写入"}}; 
     }
+    else if(toolName == "Bash")
+    {
+        std::string toolid = message["tool_calls"][0]["id"].get<std::string>();
+        std::string command = Get_command(message);
+        
+    }
+    
     // 其他工具函数待添加
     std::cerr << "访问到未定义工具\n";
     return 1;
