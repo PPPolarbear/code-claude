@@ -12,7 +12,8 @@
             {
                 "id": "call_abc123",
                 "type": "function",
-                "function": {
+                "function": 
+                {
                 "name": "Read",
                 "arguments": "{\"file_path\": \"/path/to/file.txt\"}"
                 }
