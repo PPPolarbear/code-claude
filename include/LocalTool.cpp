@@ -2,10 +2,12 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <unistd.h>
 #include "LocalTool.h"
 #include <cpr/cpr.h>
 #include <nlohmann/json.hpp>
 #include <filesystem>
+#include <sys/wait.h>
 
 using json = nlohmann::json;
 
@@ -30,6 +32,87 @@ json Get_Path(const json& message)
         std::exit(EXIT_FAILURE);
     }
     return "";
+}
+
+/// @brief 从message的message["tool_calls"][i]["function"]["arguments"]字段提取出命令
+/// @param message 模型返回信息
+/// @return 命令字符串
+std::string Get_command(const nlohmann::json& message)
+{
+    if(message.contains("tool_calls") && message["tool_calls"][0].contains("arguments") && !message["tool_calls"][0]["arguments"].empty())
+    {
+        return message["tool_calls"][0]["arguments"].get<std::string>();
+    }
+    std::cerr << "模型信息返回错误，无法调用bash";
+    _exit(126);
+}
+
+/// @brief 利用POSIX原语完成bash执行工作
+/// @param command 命令字符串
+/// @return shell在标准输入输出流上的执行结果
+std::string ExecRes(const std::string& command)
+{
+    int fds[2];
+    if(pipe(fds) == -1)
+    {
+        std::cerr << "pipe创建失败";
+        return "";
+    }
+
+    pid_t pid = fork();
+    if(pid == -1) // fork失败
+    {
+        close(fds[0]);
+        close(fds[1]);
+        std::cerr << "fork失败";
+        return "";
+    }
+
+    if(!pid) // 子进程
+    {
+        if(dup2(fds[1], STDOUT_FILENO) == -1 || dup2(fds[1], STDERR_FILENO) == -1)
+        {
+            std::cerr << "标准输入/输出重定向到管道过程失败";
+            _exit(126);
+        }
+        close(fds[0]);
+        close(fds[1]);
+
+        // 交给shell执行command，成功则无信息返回直接结束
+        execl("/bin/sh", "sh", "-c", command.c_str(), (char*)nullptr);
+
+        // 只有 exec 失败才会走到这里
+        _exit(127);
+    }
+
+    // 父进程
+    close(fds[1]); // 关闭写端，防止read等不到EOF
+
+    std::string output;
+    std::array<char, 4096> buf;
+
+    while(1)
+    {
+        int n = read(fds[0], buf.data(), buf.size());
+        if(n > 0)
+        {
+            // 成功读取
+            output.append(buf.data(), static_cast<size_t>(n));
+        }
+        else if(n == 0){
+            // 已经读完，关闭写端
+            break; 
+        }
+        else{
+            std::cerr << "读端异常";
+            break;
+        }
+    }
+    close(fds[0]); // 用完关闭读端
+
+    int status = 0;
+    waitpid(pid, &status, 0);
+    return output;
 }
 
 
@@ -102,7 +185,12 @@ nlohmann::json tool_invoke(const nlohmann::json& message)
     {
         std::string toolid = message["tool_calls"][0]["id"].get<std::string>();
         std::string command = Get_command(message);
-        
+        std::string res = ExecRes(command);
+        return {
+            {"role", "tool"},
+            {"tool_call_id", toolid},
+            {"content", res}
+        };
     }
     
     // 其他工具函数待添加
